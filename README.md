@@ -22,6 +22,21 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Features
+
+- **Multi-pet support** — add multiple pets and assign tasks to each independently
+- **Priority-based scheduling** — high-priority tasks are always placed first; untimed tasks are auto-assigned times sequentially after timed ones
+- **Chronological sorting** — `sort_by_time()` uses `datetime.strptime` with a lambda key to handle both `HH:MM` (today) and `YYYY-MM-DD HH:MM` (recurring future) formats
+- **Conflict detection** — `detect_conflicts()` uses interval intersection to find overlapping task windows and surfaces human-readable warnings in the UI before the day starts
+- **Recurring tasks** — marking a `daily` or `weekly` task complete automatically queues the next occurrence using `date.today() + timedelta`, attached to the correct pet
+- **Task filtering** — filter the task list by pet name, completion status, or both
+- **Owner preferences** — configurable day start time and max tasks per day cap the generated schedule
+- **26 automated tests** — covers happy paths and edge cases (empty pets, exact-time conflicts, missing scheduled times)
+
+## 📸 Demo
+
+<a href="/course_images/ai110/pawpal_screenshot.png" target="_blank"><img src='/course_images/ai110/pawpal_screenshot.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
 ## Smarter Scheduling
 
 The `Scheduler` class in `pawpal_system.py` goes beyond a simple task list with four key algorithms:

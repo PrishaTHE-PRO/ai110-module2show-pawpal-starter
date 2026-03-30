@@ -15,7 +15,14 @@
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
-During implementation, I simplified task management by keeping tasks inside the Pet class instead of a separate task manager. This reduced complexity and made the Scheduler easier to implement. I also adjusted the Scheduler to generate plans without storing state, improving testability.
+
+During implementation, three meaningful changes emerged from the initial UML:
+
+1. **`detect_conflicts()` return type changed from `list[tuple]` to `list[str]`** — the initial design returned raw `(Task, Task)` pairs, which required the UI to format its own messages. Returning pre-formatted warning strings kept the UI thin and the logic testable in isolation.
+
+2. **`next_occurrence()` moved from time-only to full calendar dates** — the original version shifted an `HH:MM` string by a timedelta (producing the same time, not a different day). The fix combined `date.today() + timedelta` with `datetime.combine()` so daily tasks actually land tomorrow and weekly tasks land next week. This required both `sort_by_time()` and `detect_conflicts()` to handle two time formats (`HH:MM` and `YYYY-MM-DD HH:MM`).
+
+3. **`Scheduler → Task` arrow removed from UML** — the initial diagram showed a direct Scheduler-to-Task relationship. In practice the scheduler only ever talks to the Owner and receives Task objects back through `get_pending_tasks()`. The direct arrow was misleading and was removed.
 
 ---
 
