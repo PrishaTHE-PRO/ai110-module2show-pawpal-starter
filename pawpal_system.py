@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 
@@ -24,22 +24,26 @@ class Task:
         self.scheduled_time = new_time
 
     def next_occurrence(self) -> Optional["Task"]:
-        """Return a fresh Task for the next recurrence, or None if not recurring."""
-        if not self.frequency or not self.scheduled_time:
+        """Return a fresh Task scheduled on the next calendar date for this recurrence."""
+        if not self.frequency:
             return None
-        current = datetime.strptime(self.scheduled_time, "%H:%M")
+        # Parse just the HH:MM portion; combine with today's date as the base
+        time_part = self.scheduled_time or "08:00"
+        base_time = datetime.strptime(time_part, "%H:%M").time()
+        today = date.today()
         if self.frequency == "daily":
-            next_dt = current + timedelta(days=1)
+            next_date = today + timedelta(days=1)
         elif self.frequency == "weekly":
-            next_dt = current + timedelta(weeks=1)
+            next_date = today + timedelta(weeks=1)
         else:
             return None
+        next_dt = datetime.combine(next_date, base_time)
         return Task(
             title=self.title,
             duration_minutes=self.duration_minutes,
             priority=self.priority,
             frequency=self.frequency,
-            scheduled_time=next_dt.strftime("%H:%M"),
+            scheduled_time=next_dt.strftime("%Y-%m-%d %H:%M"),
         )
 
 
@@ -116,11 +120,15 @@ class Scheduler:
         )
 
         # Assign times to untimed tasks starting after the last timed block
+        def _parse(s: str) -> datetime:
+            fmt = "%Y-%m-%d %H:%M" if len(s) > 5 else "%H:%M"
+            return datetime.strptime(s, fmt)
+
         if timed:
             last = timed[-1]
-            cursor = datetime.strptime(last.scheduled_time, "%H:%M") + timedelta(minutes=last.duration_minutes)
+            cursor = _parse(last.scheduled_time) + timedelta(minutes=last.duration_minutes)
         else:
-            cursor = datetime.strptime(start_time, "%H:%M")
+            cursor = _parse(start_time)
 
         for task in untimed:
             task.scheduled_time = cursor.strftime("%H:%M")
@@ -130,8 +138,13 @@ class Scheduler:
         return self.schedule
 
     def sort_by_time(self, tasks: list) -> list[Task]:
-        """Return tasks sorted chronologically by scheduled_time."""
-        return sorted(tasks, key=lambda t: t.scheduled_time or "99:99")
+        """Return tasks sorted chronologically by scheduled_time (handles HH:MM and YYYY-MM-DD HH:MM)."""
+        def parse_time(t: Task):
+            if not t.scheduled_time:
+                return datetime.max
+            fmt = "%Y-%m-%d %H:%M" if len(t.scheduled_time) > 5 else "%H:%M"
+            return datetime.strptime(t.scheduled_time, fmt)
+        return sorted(tasks, key=parse_time)
 
     def filter_tasks(
         self,
@@ -159,24 +172,32 @@ class Scheduler:
 
         return result
 
-    def detect_conflicts(self, tasks: list) -> list[tuple]:
+    def detect_conflicts(self, tasks: list) -> list[str]:
         """
-        Return a list of (Task, Task) pairs whose time windows overlap.
+        Return a list of human-readable warning strings for overlapping tasks.
+        Uses interval intersection (a_start < b_end and b_start < a_end).
         Only considers tasks that have a scheduled_time.
         """
-        conflicts = []
+        warnings = []
         timed = [t for t in tasks if t.scheduled_time]
 
+        def _parse(s: str) -> datetime:
+            fmt = "%Y-%m-%d %H:%M" if len(s) > 5 else "%H:%M"
+            return datetime.strptime(s, fmt)
+
         for i, a in enumerate(timed):
-            a_start = datetime.strptime(a.scheduled_time, "%H:%M")
+            a_start = _parse(a.scheduled_time)
             a_end = a_start + timedelta(minutes=a.duration_minutes)
             for b in timed[i + 1:]:
-                b_start = datetime.strptime(b.scheduled_time, "%H:%M")
+                b_start = _parse(b.scheduled_time)
                 b_end = b_start + timedelta(minutes=b.duration_minutes)
                 if a_start < b_end and b_start < a_end:
-                    conflicts.append((a, b))
+                    warnings.append(
+                        f"⚠ WARNING: '{a.title}' ({a.scheduled_time}, {a.duration_minutes} min) "
+                        f"overlaps '{b.title}' ({b.scheduled_time}, {b.duration_minutes} min)"
+                    )
 
-        return conflicts
+        return warnings
 
     def mark_task_complete(self, task: Task):
         """
