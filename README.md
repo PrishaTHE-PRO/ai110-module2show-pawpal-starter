@@ -35,7 +35,7 @@ Your final app should:
 
 ## 📸 Demo
 
-![PawPal App](Screenshot%202026-03-29%20at%209.51.06%20PM.png)
+![PawPal App](Screenshot 2026-03-29 at 9.51.06 PM.png)
 
 ## Smarter Scheduling
 
